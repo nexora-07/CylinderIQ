@@ -1,22 +1,38 @@
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import Problem from './components/Problem';
 import Solution from './components/Solution';
 import Features from './components/Features';
-import CallToAction from './components/CallToAction'; // 1. Import it
+import CallToAction from './components/CallToAction';
+import Register from './components/AuthPage'; 
+import LoginPage from './components/LoginPage';
+
+// This groups all your landing page sections together
+const LandingPage = () => (
+  <>
+    <Hero />
+    <Problem />
+    <Solution />
+    <Features />
+    <CallToAction />
+  </>
+);
 
 function App() {
   return (
-    <div className="bg-[#f8f9fa] min-h-screen selection:bg-[#dae2ff]">
-      <Navbar />
-      <main>
-        <Hero />
-        <Problem />
-        <Solution />
-        <Features />
-        <CallToAction /> {/* 2. The Final Piece */}
-      </main>
-    </div>
+    <Router>
+      <div className="min-h-screen bg-white">
+        {/* Navbar stays at the top of every page */}
+        <Navbar />
+        
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/login" element={<LoginPage />} />
+        </Routes>
+      </div>
+    </Router>
   );
 }
 

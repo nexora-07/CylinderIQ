@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 
 const Hero = () => {
   return (
@@ -24,9 +25,11 @@ const Hero = () => {
           
           {/* Buttons: Centered on mobile, left-aligned on desktop */}
           <div className="flex flex-col sm:flex-row justify-center md:justify-start gap-4">
+            <Link to="/register">
             <button className="bg-[#0c56d0] hover:bg-[#004aba] text-white px-8 py-4 rounded-lg font-bold text-lg transition-transform hover:scale-[1.02] shadow-xl w-full sm:w-auto">
               Get Started
             </button>
+            </Link>
             <button className="bg-[#e3e9ec] text-[#2b3437] px-8 py-4 rounded-lg font-bold text-lg hover:bg-[#dbe4e7] transition-all w-full sm:w-auto">
               Watch the Video
             </button>
