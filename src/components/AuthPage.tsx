@@ -4,9 +4,8 @@ import { Link } from 'react-router-dom';
 
 const Register = () => {
   const [selectedRole, setSelectedRole] = useState('admin');
-  const [showPassword, setShowPassword] = useState(false); // State for password toggle
+  const [showPassword, setShowPassword] = useState(false);
 
-  // Animation Variants based on the DESIGN.md "Architectural" feel
   const containerVariants: any = {
     hidden: { opacity: 0 },
     show: {
@@ -29,13 +28,17 @@ const Register = () => {
 
   return (
     <main className="min-h-screen bg-[#f8f9fa] font-body text-[#2b3437] flex items-center justify-center p-6 md:p-12 pt-32">
-      <div className="max-w-7xl w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-stretch">
+      {/* 1. Added containerVariants here */}
+      <motion.div 
+        variants={containerVariants}
+        initial="hidden"
+        animate="show"
+        className="max-w-7xl w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-stretch"
+      >
         
-        {/* LEFT SIDE: Editorial Content */}
+        {/* 2. Added itemVariants to the Left Column */}
         <motion.div 
-          initial={{ opacity: 0, x: -40 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+          variants={itemVariants}
           className="lg:col-span-5 flex flex-col justify-between py-12 order-2 lg:order-1"
         >
           <div className="space-y-8">
@@ -48,7 +51,6 @@ const Register = () => {
               </p>
             </div>
 
-            {/* Value Props with "Ghost Borders" */}
             <div className="grid grid-cols-1 gap-6 pt-8">
               {[
                 { title: 'Real-time Tracking', desc: 'Live telemetry for every cylinder.', icon: 'hub', color: 'bg-[#dae2ff] text-[#0c56d0]' },
@@ -70,15 +72,12 @@ const Register = () => {
           <p className="pt-12 text-sm text-[#586064] opacity-60 text-center lg:text-left">© 2024 CylinderIQ. Architectural Intelligence.</p>
         </motion.div>
 
-        {/* RIGHT SIDE: Registration Form Card */}
+        {/* 3. Added itemVariants to the Right Column (Form Card) */}
         <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+          variants={itemVariants}
           className="lg:col-span-7 flex items-center order-1 lg:order-2"
         >
           <div className="w-full bg-white rounded-[2rem] p-8 md:p-12 shadow-[0px_24px_48px_rgba(43,52,55,0.06)] relative overflow-hidden border border-[#abb3b7]/10">
-            {/* Animated Progress Bar */}
             <div className="absolute top-0 left-0 w-full h-1.5 bg-[#eaeff1]">
               <motion.div 
                 initial={{ width: 0 }}
@@ -89,7 +88,6 @@ const Register = () => {
 
             <div className="flex flex-col sm:flex-row justify-between items-start mb-8 gap-6 sm:gap-0">
               <div className="space-y-4">
-                {/* Progress Nodes: 1, 2, and 3 */}
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-full bg-[#0c56d0] text-white flex items-center justify-center text-xs font-bold shadow-lg shadow-[#0c56d0]/20">1</div>
                   <div className="w-8 h-px bg-[#e3e9ec]"></div>
@@ -120,7 +118,6 @@ const Register = () => {
                 </div>
               </div>
 
-              {/* Role Selection */}
               <div className="space-y-4">
                 <label className="text-sm font-semibold text-[#586064] ml-1 uppercase tracking-wider text-[11px]">Select Your Role</label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -144,7 +141,6 @@ const Register = () => {
                 </div>
               </div>
 
-              {/* Password with Toggle */}
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-[#586064] ml-1 uppercase tracking-wider text-[11px]">Secure Password</label>
                 <div className="relative">
@@ -177,7 +173,7 @@ const Register = () => {
             </form>
           </div>
         </motion.div>
-      </div>
+      </motion.div>
     </main>
   );
 };
