@@ -7,8 +7,11 @@ import Features from './components/Features';
 import CallToAction from './components/CallToAction';
 import Register from './components/AuthPage'; 
 import LoginPage from './components/LoginPage';
+import Dashboard from './pages/Dashboard';
 
-// This groups all your landing page sections together
+// FIX: Change '../pages/LinkDevice' to './pages/LinkDevice'
+import LinkDevice from './pages/LinkDevice'; 
+
 const LandingPage = () => (
   <>
     <Hero />
@@ -23,14 +26,22 @@ function App() {
   return (
     <Router>
       <div className="min-h-screen bg-white">
-        {/* Navbar stays at the top of every page */}
         <Navbar />
         
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/login" element={<LoginPage />} />
-        </Routes>
+        <div className="pt-16"> 
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            
+            {/* Handshake Route */}
+            <Route path="/link-device" element={<LinkDevice />} />
+            
+            {/* Temporary catch-all to prevent blank screens during testing */}
+            <Route path="*" element={<div className="pt-32 text-center">Page Not Found</div>} />
+          </Routes>
+        </div>
       </div>
     </Router>
   );
