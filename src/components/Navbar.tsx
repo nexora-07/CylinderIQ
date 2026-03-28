@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Link, useLocation } from "react-router-dom"; // Added useLocation
+import { Link, useLocation } from "react-router-dom"; 
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const location = useLocation(); // Hook to get current path
-  const isDashboard = location.pathname === '/dashboard';
+  const location = useLocation(); 
 
-  // Smooth scroll to top for the Home link
+  // Updated logic: Check if we are on ANY dashboard/panel route
+  const isDashboard = location.pathname === '/dashboard' || location.pathname === '/distributor-panel';
+
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     setIsOpen(false);
@@ -26,7 +27,7 @@ const Navbar = () => {
           CylinderIQ
         </Link>
 
-        {/* Desktop Navigation - Only show if NOT on dashboard */}
+        {/* Desktop Navigation - Only show if NOT on a dashboard panel */}
         {!isDashboard && (
           <div className="hidden md:flex gap-8">
             <button
@@ -51,7 +52,7 @@ const Navbar = () => {
       {/* Right: Actions */}
       <div className="flex items-center gap-3">
         {!isDashboard ? (
-          // PUBLIC VIEW
+          // PUBLIC VIEW (Landing Page, Login, Register)
           <div className="hidden md:flex items-center gap-3">
             <Link to="/login">
               <button className="px-4 py-1.5 text-[#586064] font-medium hover:text-[#0c56d0] transition-colors text-sm font-body">
@@ -66,7 +67,7 @@ const Navbar = () => {
             </Link>
           </div>
         ) : (
-          // DASHBOARD VIEW
+          // DASHBOARD VIEW (Household or Distributor)
           <div className="flex items-center gap-5">
              <span className="material-symbols-outlined text-[#abb3b7] cursor-pointer hover:text-[#0c56d0] transition-colors">
               notifications
@@ -82,7 +83,7 @@ const Navbar = () => {
           </div>
         )}
 
-        {/* Mobile Toggle (Only for Landing Page) */}
+        {/* Mobile Toggle (Hidden on Dashboard for a cleaner UI) */}
         {!isDashboard && (
           <button onClick={() => setIsOpen(!isOpen)} className="md:hidden p-2 text-[#2b3437]">
             <div className="w-5 h-4 flex flex-col justify-between">

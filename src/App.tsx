@@ -8,9 +8,10 @@ import CallToAction from './components/CallToAction';
 import Register from './components/AuthPage'; 
 import LoginPage from './components/LoginPage';
 import Dashboard from './pages/Dashboard';
-
-// FIX: Change '../pages/LinkDevice' to './pages/LinkDevice'
 import LinkDevice from './pages/LinkDevice'; 
+
+// 1. Import the new Distributor Dashboard
+import DistributorDashboard from './pages/DistributorDashboard'; 
 
 const LandingPage = () => (
   <>
@@ -33,12 +34,16 @@ function App() {
             <Route path="/" element={<LandingPage />} />
             <Route path="/register" element={<Register />} />
             <Route path="/login" element={<LoginPage />} />
+            
+            {/* 2. Household Dashboard Route */}
             <Route path="/dashboard" element={<Dashboard />} />
+            
+            {/* 3. Distributor Dashboard Route */}
+            <Route path="/distributor-panel" element={<DistributorDashboard />} />
             
             {/* Handshake Route */}
             <Route path="/link-device" element={<LinkDevice />} />
             
-            {/* Temporary catch-all to prevent blank screens during testing */}
             <Route path="*" element={<div className="pt-32 text-center">Page Not Found</div>} />
           </Routes>
         </div>
