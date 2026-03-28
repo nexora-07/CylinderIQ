@@ -1,11 +1,38 @@
 import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // 1. Added useEffect
 import { Link } from 'react-router-dom';
+import { auth, db } from '../firebase'; // 2. Import Firebase
+import { doc, getDoc } from 'firebase/firestore'; // 3. Import Firestore methods
 
 const Dashboard = () => {
   const [gasLevel] = useState(18);
   const [weight] = useState(2.25);
   const [daysLeft] = useState(4);
+  
+  // 4. Create state for the Dynamic Name
+  const [userName, setUserName] = useState('User');
+
+  // 5. Fetch User Data on Load
+  useEffect(() => {
+    const fetchUserData = async () => {
+      const user = auth.currentUser;
+      if (user) {
+        try {
+          const userRef = doc(db, "users", user.uid);
+          const userSnap = await getDoc(userRef);
+
+          if (userSnap.exists()) {
+            const data = userSnap.data();
+            setUserName(data.fullName || 'User');
+          }
+        } catch (error) {
+          console.error("Error fetching user name:", error);
+        }
+      }
+    };
+
+    fetchUserData();
+  }, []);
 
   // Mock data for the last 7 days of consumption (in kg)
   const weeklyUsage = [
@@ -14,7 +41,7 @@ const Dashboard = () => {
     { day: 'Wed', usage: 0.9 },
     { day: 'Thu', usage: 1.5 },
     { day: 'Fri', usage: 1.1 },
-    { day: 'Sat', usage: 2.4 }, // Weekend cooking spike!
+    { day: 'Sat', usage: 2.4 }, 
     { day: 'Sun', usage: 1.8 },
   ];
 
@@ -26,9 +53,12 @@ const Dashboard = () => {
         
         {/* Header */}
         <header className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6 text-left">
-          <div>
+          <div className="text-left">
             <span className="text-[#0c56d0] font-bold text-xs uppercase tracking-[0.2em]">Active Terminal: Main Kitchen</span>
-            <h1 className="text-3xl font-headline font-black text-[#2b3437] mt-1 text-left">Welcome back, Kiki</h1>
+            {/* 6. UPDATED NAME HERE */}
+            <h1 className="text-3xl font-headline font-black text-[#2b3437] mt-1 text-left">
+              Welcome back, <span className="text-[#0c56d0]">{userName}</span>
+            </h1>
           </div>
           <Link 
             to="/link-device" 
@@ -69,7 +99,7 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              <div className="flex-1 space-y-6">
+              <div className="flex-1 space-y-6 text-left">
                 <div>
                   <h3 className="text-[#586064] font-bold text-xs uppercase tracking-widest mb-2 text-left">Predictive Analysis</h3>
                   <p className="text-4xl font-headline font-black text-[#2b3437] text-left">
@@ -91,7 +121,7 @@ const Dashboard = () => {
 
           {/* SIDE STATS */}
           <div className="lg:col-span-4 space-y-6">
-            <div className="bg-white p-8 rounded-[2rem] border border-[#abb3b7]/10 shadow-sm">
+            <div className="bg-white p-8 rounded-[2rem] border border-[#abb3b7]/10 shadow-sm text-left">
               <span className="material-symbols-outlined text-[#0c56d0] mb-3">scale</span>
               <h3 className="text-[#abb3b7] text-[10px] font-black uppercase tracking-widest text-left">Net Gas Weight</h3>
               <p className="text-2xl font-headline font-bold text-[#2b3437] text-left">{weight} kg</p>
@@ -100,7 +130,7 @@ const Dashboard = () => {
               </div>
             </div>
 
-            <div className="bg-[#2b3437] p-8 rounded-[2rem] text-white shadow-xl shadow-[#2b3437]/20">
+            <div className="bg-[#2b3437] p-8 rounded-[2rem] text-white shadow-xl shadow-[#2b3437]/20 text-left">
               <div className="flex justify-between items-start mb-4">
                 <span className="material-symbols-outlined text-green-400">verified_user</span>
                 <span className="text-[9px] font-bold text-white/30 tracking-tighter uppercase">ID: X8-Q2-771</span>
@@ -115,9 +145,9 @@ const Dashboard = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="lg:col-span-12 bg-white rounded-[2.5rem] p-8 md:p-10 shadow-sm border border-[#abb3b7]/10"
+            className="lg:col-span-12 bg-white rounded-[2.5rem] p-8 md:p-10 shadow-sm border border-[#abb3b7]/10 text-left"
           >
-            <div className="flex justify-between items-center mb-10">
+            <div className="flex justify-between items-center mb-10 text-left">
               <div>
                 <h3 className="text-[#2b3437] font-headline font-bold text-xl text-left">Weekly Consumption</h3>
                 <p className="text-[#586064] text-xs font-medium uppercase tracking-wider mt-1 text-left">Average usage: 1.3kg / day</p>
@@ -134,11 +164,9 @@ const Dashboard = () => {
               {weeklyUsage.map((data, i) => (
                 <div key={i} className="flex-1 flex flex-col items-center gap-4 group">
                   <div className="relative w-full flex flex-col items-center justify-end h-40">
-                    {/* Tooltip on hover */}
                     <div className="absolute -top-8 opacity-0 group-hover:opacity-100 transition-opacity bg-[#2b3437] text-white text-[10px] px-2 py-1 rounded mb-2 font-bold whitespace-nowrap z-10">
                       {data.usage}kg
                     </div>
-                    {/* The Bar */}
                     <motion.div 
                       initial={{ height: 0 }}
                       animate={{ height: `${(data.usage / maxUsage) * 100}%` }}
