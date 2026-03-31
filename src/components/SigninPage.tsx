@@ -1,16 +1,27 @@
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { auth, db } from '../firebase'; // Import Firebase
+import { auth, db } from '../firebase'; 
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
-  const [email, setEmail] = useState(""); // Added state for email
-  const [password, setPassword] = useState(""); // Added state for password
-  const [loading, setLoading] = useState(false); // Added loading state
+  const [email, setEmail] = useState(""); 
+  const [password, setPassword] = useState(""); 
+  const [loading, setLoading] = useState(false);
+  
+  // NEW: State to select which dashboard to access
+  const [loginRole, setLoginRole] = useState("household");
+
   const navigate = useNavigate();
+
+  // Role options for the selector
+  const roles = [
+    { id: "household", label: "Household", icon: "home" },
+    { id: "distributor", label: "Distributor", icon: "monitoring" },
+    { id: "logistics", label: "Logistics", icon: "local_shipping" },
+  ];
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,23 +32,22 @@ const Login = () => {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // 2. Fetch the user's role from Firestore
+      // 2. Fetch the user's REAL profile from Firestore
       const userDoc = await getDoc(doc(db, "users", user.uid));
       
       if (userDoc.exists()) {
         const userData = userDoc.data();
-        const userRole = userData.role;
+        const actualProfileRole = userData.role;
 
-        console.log("Access Granted. Role:", userRole);
+        console.log(`Signed in as ${actualProfileRole}. Requested view: ${loginRole}`);
 
-        // 3. Smart Redirect based on Role
-        if (userRole === 'distributor') {
+        // 3. Smart Redirect: We prioritize the SELECTED role for navigation
+        if (loginRole === 'distributor' || loginRole === 'logistics') {
           navigate('/distributor-panel');
         } else {
           navigate('/dashboard');
         }
       } else {
-        // Fallback if no profile exists in database
         navigate('/dashboard');
       }
 
@@ -77,6 +87,31 @@ const Login = () => {
           </div>
 
           <form className="space-y-6" onSubmit={handleLogin}>
+            
+            {/* NEW: Role Selector UI */}
+            <div className="space-y-3 mb-4">
+              <label className="text-[10px] font-black uppercase tracking-widest text-[#586064] ml-1">
+                Sign in as:
+              </label>
+              <div className="grid grid-cols-3 gap-3">
+                {roles.map((role) => (
+                  <button
+                    key={role.id}
+                    type="button"
+                    onClick={() => setLoginRole(role.id)}
+                    className={`py-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1 ${
+                      loginRole === role.id 
+                        ? "border-[#0c56d0] bg-[#0c56d0]/5 text-[#0c56d0]" 
+                        : "border-transparent bg-[#f1f4f6] text-[#abb3b7] hover:bg-[#eaeff1]"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-xl">{role.icon}</span>
+                    <span className="text-[9px] font-black uppercase tracking-tighter">{role.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="space-y-2 text-left">
               <label className="text-sm font-semibold text-[#586064] ml-1 uppercase tracking-wider text-[10px]">
                 Registered Email
@@ -149,7 +184,7 @@ const Login = () => {
             >
               {loading ? "Authenticating..." : (
                 <>
-                  <span>Initialize Dashboard</span>
+                  <span>Sign In to Terminal</span>
                   <span className="material-symbols-outlined">login</span>
                 </>
               )}

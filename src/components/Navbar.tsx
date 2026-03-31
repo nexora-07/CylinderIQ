@@ -24,7 +24,8 @@ const Navbar = () => {
           onClick={scrollToTop}
           className="text-xl font-extrabold tracking-tight text-[#2b3437] font-headline cursor-pointer"
         >
-          CylinderIQ
+          {/* UPDATED: Blue "IQ" Branding */}
+          Cylinder<span className="text-[#0c56d0]">IQ</span>
         </Link>
 
         {/* Desktop Navigation - Only show if NOT on a dashboard panel */}
@@ -55,13 +56,14 @@ const Navbar = () => {
           // PUBLIC VIEW (Landing Page, Login, Register)
           <div className="hidden md:flex items-center gap-3">
             <Link to="/login">
-              <button className="px-4 py-1.5 text-[#586064] font-medium hover:text-[#0c56d0] transition-colors text-sm font-body">
-                Login
+              {/* UPDATED: Changed text to "Sign In" to match Hero section */}
+              <button className="px-4 py-1.5 text-[#586064] font-bold hover:text-[#0c56d0] transition-colors text-sm font-body">
+                Sign In
               </button>
             </Link>
 
             <Link to="/register">
-              <button className="bg-[#0c56d0] hover:bg-[#004aba] text-[#f8f7ff] px-5 py-2 rounded-lg font-semibold transition-all shadow-sm text-sm font-headline">
+              <button className="bg-[#0c56d0] hover:bg-[#004aba] text-[#f8f7ff] px-5 py-2 rounded-lg font-bold transition-all shadow-sm text-sm font-headline">
                 Get Started
               </button>
             </Link>
@@ -111,8 +113,17 @@ const Navbar = () => {
             
             <hr className="border-[#abb3b7]/15" />
             <div className="flex flex-col gap-3">
-              <Link to="/login" onClick={() => setIsOpen(false)}><button className="w-full py-2.5 text-[#586064] font-medium border border-[#abb3b7]/30 rounded-lg text-sm">Login</button></Link>
-              <Link to="/register" onClick={() => setIsOpen(false)}><button className="w-full py-2.5 bg-[#0c56d0] text-white font-bold rounded-lg shadow-lg text-sm">Get Started</button></Link>
+              {/* UPDATED: Consistency for Mobile Menu */}
+              <Link to="/login" onClick={() => setIsOpen(false)}>
+                <button className="w-full py-2.5 text-[#586064] font-bold border border-[#abb3b7]/30 rounded-lg text-sm">
+                  Sign In
+                </button>
+              </Link>
+              <Link to="/register" onClick={() => setIsOpen(false)}>
+                <button className="w-full py-2.5 bg-[#0c56d0] text-white font-bold rounded-lg shadow-lg text-sm">
+                  Get Started
+                </button>
+              </Link>
             </div>
           </motion.div>
         )}

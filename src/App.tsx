@@ -6,7 +6,7 @@ import Solution from './components/Solution';
 import Features from './components/Features';
 import CallToAction from './components/CallToAction';
 import Register from './components/AuthPage'; 
-import LoginPage from './components/LoginPage';
+import SigninPage from './components/SigninPage';
 import Dashboard from './pages/Dashboard';
 import LinkDevice from './pages/LinkDevice'; 
 
@@ -33,7 +33,7 @@ function App() {
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/login" element={<LoginPage />} />
+            <Route path="/login" element={<SigninPage />} />
             
             {/* 2. Household Dashboard Route */}
             <Route path="/dashboard" element={<Dashboard />} />

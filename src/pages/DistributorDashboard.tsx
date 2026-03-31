@@ -1,21 +1,24 @@
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { auth, db } from '../firebase'; // Import Firebase
-import { doc, getDoc } from 'firebase/firestore'; // Import Firestore methods
+import { auth, db } from '../firebase'; 
+import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore'; 
+// IMPORT YOUR NEW COMPONENT
+import DistributorMap from '../components/DistributorMap'; 
 
 const Dashboard = () => {
-  // 1. Firebase State
-  const [userRole, setUserRole] = useState<'household' | 'distributor' | null>(null);
+  const [userRole, setUserRole] = useState<'household' | 'distributor' | 'logistics' | null>(null);
   const [userName, setUserName] = useState('User');
   const [loading, setLoading] = useState(true);
 
-  // 2. Household Stats (Mock data)
+  // --- NEW: State for real-time households ---
+  const [households, setHouseholds] = useState<any[]>([]);
+
   const [gasLevel] = useState(18);
   const [weight] = useState(2.25);
   const [daysLeft] = useState(4);
 
-  // 3. Fetch User Data from Firestore
+  // 1. Fetch CURRENT Logged-in User Data
   useEffect(() => {
     const fetchUserData = async () => {
       const user = auth.currentUser;
@@ -39,22 +42,25 @@ const Dashboard = () => {
     fetchUserData();
   }, []);
 
-  // Mock data for a Distributor's fleet
-  const customers = [
-    { id: 'CUST-001', name: 'Kiki Aborisade', level: 18, location: 'Ikeja, Lagos', status: 'Urgent' },
-    { id: 'CUST-002', name: 'John Doe', level: 45, location: 'Lekki, Lagos', status: 'Stable' },
-    { id: 'CUST-003', name: 'Sarah Chen', level: 12, location: 'Surulere, Lagos', status: 'Urgent' },
-    { id: 'CUST-004', name: 'Amaka Obi', level: 88, location: 'Victoria Island', status: 'Optimal' },
-  ];
+  // 2. NEW: Real-time Listener for ALL Household users (Only for Distributors)
+  useEffect(() => {
+    if (userRole === 'distributor' || userRole === 'logistics') {
+      const q = query(collection(db, "users"), where("role", "==", "household"));
+      
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ 
+          id: doc.id, 
+          ...doc.data(),
+          // Fallback gasLevel if it doesn't exist in DB yet
+          gasLevel: doc.data().gasLevel || Math.floor(Math.random() * 100) 
+        }));
+        setHouseholds(data);
+      });
 
-  // Mock data for the last 7 days (Household)
-  const weeklyUsage = [
-    { day: 'Mon', usage: 0.8 }, { day: 'Tue', usage: 1.2 }, { day: 'Wed', usage: 0.9 },
-    { day: 'Thu', usage: 1.5 }, { day: 'Fri', usage: 1.1 }, { day: 'Sat', usage: 2.4 }, { day: 'Sun', usage: 1.8 },
-  ];
-  const maxUsage = Math.max(...weeklyUsage.map(u => u.usage));
+      return () => unsubscribe();
+    }
+  }, [userRole]);
 
-  // 4. Loading State
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f8f9fa]">
@@ -82,7 +88,6 @@ const Dashboard = () => {
           </header>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            {/* GAUGE CARD */}
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="lg:col-span-8 bg-white rounded-[2.5rem] p-8 md:p-12 shadow-sm border border-[#abb3b7]/10">
               <div className="flex flex-col md:flex-row items-center gap-12">
                 <div className="relative w-64 h-64">
@@ -103,7 +108,6 @@ const Dashboard = () => {
               </div>
             </motion.div>
 
-            {/* SIDE STATS */}
             <div className="lg:col-span-4 space-y-6">
               <div className="bg-white p-8 rounded-[2rem] border border-[#abb3b7]/10 shadow-sm text-left">
                 <h3 className="text-[#abb3b7] text-[10px] font-black uppercase tracking-widest">Net Gas Weight</h3>
@@ -137,69 +141,62 @@ const Dashboard = () => {
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Top Stats Cards */}
           <div className="lg:col-span-12 grid grid-cols-1 md:grid-cols-4 gap-4 text-left">
             {[
-              { label: 'Active Scales', val: '1,240', icon: 'sensors', color: 'text-blue-500' },
-              { label: 'Urgent Refills', val: '42', icon: 'priority_high', color: 'text-red-500' },
+              { label: 'Network Points', val: households.length, icon: 'sensors', color: 'text-blue-500' },
+              { label: 'Urgent Refills', val: households.filter(h => h.gasLevel < 20).length, icon: 'priority_high', color: 'text-red-500' },
               { label: 'Total Gas (MT)', val: '12.4', icon: 'database', color: 'text-gray-700' },
               { label: 'Revenue/mo', val: '₦2.4M', icon: 'payments', color: 'text-green-600' },
             ].map((stat, i) => (
               <div key={i} className="bg-white p-6 rounded-2xl border border-[#abb3b7]/10 shadow-sm text-left">
-                <div className="flex justify-between items-start mb-2">
-                  <span className={`material-symbols-outlined ${stat.color}`}>{stat.icon}</span>
-                </div>
+                <span className={`material-symbols-outlined mb-2 ${stat.color}`}>{stat.icon}</span>
                 <p className="text-2xl font-headline font-black text-[#2b3437]">{stat.val}</p>
                 <p className="text-xs font-bold text-[#586064] uppercase tracking-widest">{stat.label}</p>
               </div>
             ))}
           </div>
 
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="lg:col-span-8 bg-white rounded-[2.5rem] p-8 shadow-sm border border-[#abb3b7]/10">
+          {/* Left: Priority Table */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="lg:col-span-6 bg-white rounded-[2.5rem] p-8 shadow-sm border border-[#abb3b7]/10">
             <h3 className="text-xl font-headline font-black text-[#2b3437] mb-6">Refill Priority Queue</h3>
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-[#f1f4f6] text-[10px] font-black text-[#abb3b7] uppercase tracking-widest">
-                  <th className="pb-4">Customer</th>
-                  <th className="pb-4">Level</th>
-                  <th className="pb-4">Location</th>
-                  <th className="pb-4">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#f1f4f6]">
-                {customers.map((cust, i) => (
-                  <tr key={i} className="group hover:bg-[#f8f9fa] transition-colors">
-                    <td className="py-5">
-                      <p className="font-bold text-[#2b3437] text-sm">{cust.name}</p>
-                      <p className="text-[10px] text-[#abb3b7] font-bold uppercase tracking-tighter">{cust.id}</p>
-                    </td>
-                    <td className="py-5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-24 h-1.5 bg-[#f1f4f6] rounded-full overflow-hidden">
-                          <div className={`h-full ${cust.level < 20 ? 'bg-red-500' : 'bg-blue-500'}`} style={{ width: `${cust.level}%` }} />
-                        </div>
-                        <span className={`text-xs font-black ${cust.level < 20 ? 'text-red-500' : 'text-[#2b3437]'}`}>{cust.level}%</span>
-                      </div>
-                    </td>
-                    <td className="py-5 text-xs font-medium text-[#586064]">{cust.location}</td>
-                    <td className="py-5"><button className="text-[10px] font-black uppercase text-[#0c56d0] hover:underline">Assign Driver</button></td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-[#f1f4f6] text-[10px] font-black text-[#abb3b7] uppercase tracking-widest">
+                    <th className="pb-4">Customer</th>
+                    <th className="pb-4">Level</th>
+                    <th className="pb-4 text-right">Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-[#f1f4f6]">
+                  {households.sort((a,b) => a.gasLevel - b.gasLevel).slice(0, 5).map((cust, i) => (
+                    <tr key={i} className="group hover:bg-[#f8f9fa] transition-colors">
+                      <td className="py-5">
+                        <p className="font-bold text-[#2b3437] text-sm">{cust.fullName}</p>
+                        <p className="text-[10px] text-[#abb3b7] font-bold uppercase tracking-tighter truncate max-w-[150px]">{cust.address}</p>
+                      </td>
+                      <td className="py-5">
+                        <span className={`text-xs font-black ${cust.gasLevel < 20 ? 'text-red-500' : 'text-[#2b3437]'}`}>{cust.gasLevel}%</span>
+                      </td>
+                      <td className="py-5 text-right">
+                        <button className="text-[10px] font-black uppercase text-[#0c56d0] hover:underline">Assign</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </motion.div>
 
-          <div className="lg:col-span-4">
-            <div className="bg-[#2b3437] rounded-[2.5rem] h-full p-8 text-white relative overflow-hidden min-h-[400px]">
-              <h3 className="text-xl font-headline font-bold mb-2">Live Heatmap</h3>
-              <p className="text-xs text-white/40 mb-8 font-medium">Concentration of "Urgent" status cylinders.</p>
-              <div className="space-y-4">
-                 {[1, 2, 3].map(i => (
-                   <div key={i} className="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/10">
-                     <div className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-                     <p className="text-[10px] font-bold text-left">Depletion alert in {customers[i-1].location}</p>
-                   </div>
-                 ))}
-              </div>
+          {/* Right: REAL-TIME MAP replacing mock heatmap */}
+          <div className="lg:col-span-6">
+            <div className="bg-white rounded-[2.5rem] p-4 shadow-sm border border-[#abb3b7]/10 h-full min-h-[500px]">
+              <h3 className="text-xl font-headline font-black text-[#2b3437] mb-2 px-4 pt-4">Live Demand Map</h3>
+              <p className="text-xs text-[#586064] mb-4 px-4 font-medium italic">Showing all active IoT terminals in the region.</p>
+              
+              {/* THE MAP COMPONENT */}
+              <DistributorMap usersData={households} />
             </div>
           </div>
         </div>
