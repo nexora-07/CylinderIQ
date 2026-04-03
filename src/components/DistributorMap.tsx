@@ -5,13 +5,14 @@ import 'leaflet/dist/leaflet.css';
 
 const pulseStyle = `
   @keyframes gas-pulse {
-    0% { stroke-width: 4; stroke-opacity: 0.6; }
-    50% { stroke-width: 12; stroke-opacity: 0.2; }
-    100% { stroke-width: 4; stroke-opacity: 0.6; }
+    0% { stroke-width: 2; stroke-opacity: 1; stroke: #ff3b3b; fill: #ff3b3b; }
+    50% { stroke-width: 30; stroke-opacity: 0; stroke: #ff3b3b; fill: #ff3b3b; }
+    100% { stroke-width: 2; stroke-opacity: 1; stroke: #ff3b3b; fill: #ff3b3b; }
   }
-  .gas-marker {
-    animation: gas-pulse 2s infinite ease-in-out;
-    outline: none;
+  .critical-pulse {
+    animation: gas-pulse 1.2s infinite ease-in-out !important;
+    stroke: #ff3b3b !important;
+    fill: #ff3b3b !important;
   }
 `;
 
@@ -21,7 +22,6 @@ const FitMarkers = ({ usersData }: { usersData: any[] }) => {
     if (usersData?.length > 0) {
       const points = usersData
         .map((u) => {
-          // Extract numbers from "Lat: 7.123, Long: 3.123"
           const c = u.address?.match(/-?\d+\.\d+/g);
           return c ? [parseFloat(c[0]), parseFloat(c[1])] : null;
         })
@@ -36,24 +36,18 @@ const FitMarkers = ({ usersData }: { usersData: any[] }) => {
   return null;
 };
 
-const getGasColor = (percentage: number) => {
-  if (percentage <= 20) return "#ff3b3b"; // Vivid Red
-  if (percentage <= 50) return "#ffcc00"; // Vivid Yellow
-  return "#00f2fe";                       // Cyber Blue/Green
-};
-
 const DistributorMap = ({ usersData }: { usersData: any[] }) => {
-  // Default to Nigeria/Ibadan area so we don't see the whole of Africa
   const defaultCenter: [number, number] = [7.3775, 3.9470];
 
   return (
-    <div className="h-[500px] w-full rounded-[2.5rem] overflow-hidden border border-white/5 shadow-2xl relative bg-[#0f1115]">
+    <div className="w-full h-full min-h-full relative overflow-hidden">
       <style>{pulseStyle}</style>
       <MapContainer 
         center={defaultCenter} 
         zoom={12} 
         zoomControl={false}
-        style={{ height: '100%', width: '100%' }}
+        style={{ height: '100%', width: '100%', position: 'absolute' }}
+        className="h-full w-full"
       >
         <TileLayer
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
@@ -63,34 +57,39 @@ const DistributorMap = ({ usersData }: { usersData: any[] }) => {
         <FitMarkers usersData={usersData} />
 
         {usersData.map((user) => {
-          // 1. Safety check for coordinates
+          // 1. EXTRACT COORDINATES
           const coords = user.address?.match(/-?\d+\.\d+/g);
+          
+          // If no coordinates, we can't draw the beep!
           if (!coords || coords.length < 2) return null;
 
           const position: [number, number] = [parseFloat(coords[0]), parseFloat(coords[1])];
           
-          // 2. Safety check for gas level field name
-          const currentLevel = user.gasLevel ?? user.level ?? 0;
-          const color = getGasColor(currentLevel);
+          // 2. FORCE LEVEL TO NUMBER
+          const level = Number(user.gasLevel ?? 0);
+          const isCritical = level <= 20;
+          
+          // 3. ASSIGN COLOR
+          const color = isCritical ? "#ff3b3b" : level <= 50 ? "#ffcc00" : "#00f2fe";
 
           return (
             <CircleMarker
               key={user.id}
               center={position}
-              radius={8}
-              className="gas-marker"
+              radius={isCritical ? 12 : 7}
+              className={isCritical ? "critical-pulse" : ""}
               pathOptions={{
                 fillColor: color,
                 color: color,
                 fillOpacity: 0.9,
-                weight: 4,
+                weight: isCritical ? 6 : 1,
               }}
             >
               <Popup>
-                <div className="p-1 font-body">
+                <div className="p-1 text-center font-sans">
                   <p className="font-bold text-xs text-gray-800">{user.fullName}</p>
-                  <p className="text-lg font-black" style={{ color }}>{currentLevel}%</p>
-                  <p className="text-[10px] text-gray-400">Status: {currentLevel <= 20 ? 'CRITICAL' : 'OK'}</p>
+                  <p className="text-xl font-black" style={{ color }}>{level}%</p>
+                  {isCritical && <p className="text-[10px] font-black text-red-600 uppercase">Emergency</p>}
                 </div>
               </Popup>
             </CircleMarker>

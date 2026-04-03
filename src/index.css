@@ -25,3 +25,20 @@ body {
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.glass-card {
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+}
+
+.critical-glow {
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.2);
+  border-left: 4px solid #ef4444 !important;
+}
+
+.active-dispatch-glow {
+  box-shadow: 0 0 15px rgba(0, 242, 254, 0.15);
+  border-left: 4px solid #00f2fe !important;
+}

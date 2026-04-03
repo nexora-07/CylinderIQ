@@ -1,205 +1,186 @@
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { auth, db } from '../firebase'; 
-import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore'; 
-// IMPORT YOUR NEW COMPONENT
+import { doc, getDoc, collection, query, where, onSnapshot, updateDoc } from 'firebase/firestore'; 
+import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import DistributorMap from '../components/DistributorMap'; 
 
 const Dashboard = () => {
-  const [userRole, setUserRole] = useState<'household' | 'distributor' | 'logistics' | null>(null);
-  const [userName, setUserName] = useState('User');
+  const [darkMode, setDarkMode] = useState(false); 
+  const [userName, setUserName] = useState('Operator');
   const [loading, setLoading] = useState(true);
-
-  // --- NEW: State for real-time households ---
   const [households, setHouseholds] = useState<any[]>([]);
 
-  const [gasLevel] = useState(18);
-  const [weight] = useState(2.25);
-  const [daysLeft] = useState(4);
+  const toggleTheme = () => setDarkMode(!darkMode);
 
-  // 1. Fetch CURRENT Logged-in User Data
+  const handleDispatch = async (userId: string) => {
+    try {
+      const userRef = doc(db, "users", userId);
+      await updateDoc(userRef, {
+        deviceStatus: "dispatched",
+        dispatchTime: new Date().toISOString()
+      });
+    } catch (error) { console.error("Dispatch Error:", error); }
+  };
+
   useEffect(() => {
     const fetchUserData = async () => {
       const user = auth.currentUser;
       if (user) {
-        try {
-          const userRef = doc(db, "users", user.uid);
-          const userSnap = await getDoc(userRef);
-
-          if (userSnap.exists()) {
-            const data = userSnap.data();
-            setUserName(data.fullName || 'User');
-            setUserRole(data.role || 'household');
-          }
-        } catch (error) {
-          console.error("Error fetching dashboard data:", error);
-        } finally {
-          setLoading(false);
-        }
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) setUserName(userSnap.data().fullName || 'Operator');
       }
     };
     fetchUserData();
   }, []);
 
-  // 2. NEW: Real-time Listener for ALL Household users (Only for Distributors)
+  // UPDATED: Enhanced Data Cleaning Listener
   useEffect(() => {
-    if (userRole === 'distributor' || userRole === 'logistics') {
-      const q = query(collection(db, "users"), where("role", "==", "household"));
-      
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ 
+    const q = query(collection(db, "users"), where("role", "==", "household"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setHouseholds(snapshot.docs.map(doc => {
+        const data = doc.data();
+        return { 
           id: doc.id, 
-          ...doc.data(),
-          // Fallback gasLevel if it doesn't exist in DB yet
-          gasLevel: doc.data().gasLevel || Math.floor(Math.random() * 100) 
-        }));
-        setHouseholds(data);
-      });
+          ...data,
+          // FORCE NUMBER HERE TOO
+          gasLevel: Number(data.gasLevel ?? data.level ?? 0),
+          deviceStatus: data.deviceStatus || "online" 
+        };
+      }));
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
-      return () => unsubscribe();
-    }
-  }, [userRole]);
+  if (loading) return (
+    <div className={`min-h-screen flex items-center justify-center font-black tracking-widest ${
+      darkMode ? 'bg-[#020617] text-[#0c56d0]' : 'bg-white text-[#0c56d0]'
+    }`}>
+      INITIALIZING CORE...
+    </div>
+  );
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f8f9fa]">
-        <div className="w-12 h-12 border-4 border-[#0c56d0]/20 border-t-[#0c56d0] rounded-full animate-spin" />
+  return (
+    <main className={`min-h-screen transition-all duration-500 font-body p-6 pt-24 text-left overflow-x-hidden ${
+      darkMode ? 'bg-[#020617] text-slate-300' : 'bg-[#f1f4f6] text-slate-600'
+    }`}>
+      
+      {/* 1. URGENT OPERATIONS STRIP */}
+      <div className={`fixed top-16 left-0 w-full z-40 border-b backdrop-blur-md py-2 px-8 flex justify-between items-center transition-all ${
+        darkMode ? 'bg-red-900/10 border-red-500/20 text-red-500' : 'bg-red-50 border-red-200 text-red-700'
+      }`}>
+        <div className="flex items-center gap-3">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+          </span>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em]">
+            Priority Alert: {households.filter(h => h.gasLevel < 20).length} Depleted Terminals
+          </p>
+        </div>
+        <button onClick={toggleTheme} className="flex items-center gap-2 group opacity-60 hover:opacity-100 transition-all">
+           <span className={`material-symbols-outlined text-sm ${darkMode ? 'text-amber-400' : 'text-blue-600'}`}>
+              {darkMode ? 'light_mode' : 'dark_mode'}
+           </span>
+           <span className="text-[10px] font-black uppercase tracking-widest">
+              {darkMode ? 'Switch to Light' : 'Switch to Dark'}
+           </span>
+        </button>
       </div>
-    );
-  }
 
-  // --- HOUSEHOLD VIEW ---
-  if (userRole === 'household') {
-    return (
-      <main className="min-h-screen bg-[#f8f9fa] pt-8 pb-12 px-6 font-body text-left">
-        <div className="max-w-7xl mx-auto">
-          <header className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6 text-left">
-            <div className="text-left">
-              <span className="text-[#0c56d0] font-bold text-xs uppercase tracking-[0.2em]">Active Terminal: Main Kitchen</span>
-              <h1 className="text-3xl font-headline font-black text-[#2b3437] mt-1 text-left">
-                Welcome back, <span className="text-[#0c56d0]">{userName}</span>
-              </h1>
+      <div className="max-w-[1850px] mx-auto grid grid-cols-12 gap-6 mt-4">
+        
+        {/* LEFT: INTELLIGENCE */}
+        <div className="col-span-12 lg:col-span-3 space-y-6">
+          <section className={`rounded-[2rem] p-6 border transition-all ${
+            darkMode ? 'bg-[#0f172a]/60 border-white/5 shadow-2xl' : 'bg-white border-slate-200 shadow-sm'
+          }`}>
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Network Volume</p>
+            <h2 className={`text-4xl font-black mb-4 ${darkMode ? 'text-white' : 'text-[#2b3437]'}`}>14.2</h2>
+            <div className="h-24 w-full opacity-50">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={[{v: 40}, {v: 70}, {v: 50}, {v: 90}]}>
+                  <Area type="monotone" dataKey="v" stroke="#0c56d0" fill="#0c56d0" fillOpacity={0.2} />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
-            <Link to="/link-device" className="flex items-center gap-2 bg-white border-2 border-dashed border-[#abb3b7]/30 px-4 py-2 rounded-xl text-[#586064] hover:border-[#0c56d0] hover:text-[#0c56d0] transition-all group">
-              <span className="material-symbols-outlined text-sm group-hover:rotate-90 transition-transform">add</span>
-              <span className="text-xs font-bold uppercase tracking-wider text-left">Add Hardware</span>
-            </Link>
-          </header>
+          </section>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="lg:col-span-8 bg-white rounded-[2.5rem] p-8 md:p-12 shadow-sm border border-[#abb3b7]/10">
-              <div className="flex flex-col md:flex-row items-center gap-12">
-                <div className="relative w-64 h-64">
-                  <svg className="w-full h-full -rotate-90">
-                    <circle cx="128" cy="128" r="110" stroke="#f1f4f6" strokeWidth="20" fill="transparent" />
-                    <motion.circle cx="128" cy="128" r="110" stroke={gasLevel < 20 ? "#9f403d" : "#0c56d0"} strokeWidth="20" fill="transparent" strokeDasharray="691" animate={{ strokeDashoffset: 691 - (691 * gasLevel) / 100 }} transition={{ duration: 1.5 }} strokeLinecap="round" />
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className={`text-6xl font-headline font-black ${gasLevel < 20 ? 'text-[#9f403d]' : 'text-[#2b3437]'}`}>{gasLevel}%</span>
-                    <span className="text-[10px] font-bold text-[#abb3b7] uppercase tracking-[0.2em]">Fuel Level</span>
+          <section className={`rounded-[2.5rem] p-6 border transition-all ${
+            darkMode ? 'bg-gradient-to-br from-[#0c56d0]/10 to-transparent border-blue-500/20' : 'bg-blue-50 border-blue-100'
+          }`}>
+            <div className="flex items-center gap-2 mb-4">
+              <span className="material-symbols-outlined text-[#0c56d0] text-lg">insights</span>
+              <h3 className="text-[10px] font-black text-[#0c56d0] uppercase tracking-widest">AI Prediction</h3>
+            </div>
+            <div className={`${darkMode ? 'bg-black/20' : 'bg-white'} p-4 rounded-2xl border ${darkMode ? 'border-white/5' : 'border-blue-200/50'}`}>
+               <p className={`text-[11px] font-bold mb-1 ${darkMode ? 'text-white' : 'text-[#0c56d0]'}`}>Demand Surge Warning</p>
+               <p className="text-[10px] text-slate-500 leading-relaxed">Zone 4 depletion predicted by Saturday.</p>
+            </div>
+          </section>
+        </div>
+
+        {/* MIDDLE: THE MAP */}
+        <div className={`col-span-12 lg:col-span-6 h-[700px] rounded-[3rem] border overflow-hidden relative shadow-2xl flex flex-col transition-all ${
+          darkMode ? 'bg-[#0f172a] border-white/5' : 'bg-white border-slate-200'
+        }`}>
+           <div className="absolute top-8 left-8 z-[10]">
+              <div className={`${darkMode ? 'bg-slate-900/80' : 'bg-white/90'} backdrop-blur-xl p-4 rounded-2xl border border-white/10 shadow-2xl text-left`}>
+                <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Live Telemetry</p>
+                <p className={`text-xs font-bold ${darkMode ? 'text-white' : 'text-[#2b3437]'}`}>12 Units Active</p>
+              </div>
+           </div>
+           
+           <div className="w-full h-full flex-1">
+              <DistributorMap usersData={households} />
+           </div>
+        </div>
+
+        {/* RIGHT: DISPATCH ENGINE */}
+        <div className="col-span-12 lg:col-span-3 flex flex-col gap-4 h-[700px]">
+          <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 text-left">Priority Engine</h3>
+          
+          <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
+            {households.sort((a,b) => a.gasLevel - b.gasLevel).map((cust, i) => (
+              <motion.div 
+                key={i} 
+                className={`p-5 rounded-[2rem] border transition-all relative overflow-hidden group ${
+                  darkMode ? 'bg-[#0f172a]/60 border-white/5 hover:border-[#0c56d0]' : 'bg-white border-slate-200 hover:border-[#0c56d0]'
+                } ${cust.gasLevel < 20 ? 'border-l-4 border-l-red-500 shadow-md' : ''}`}
+              >
+                <div className="flex justify-between items-start mb-4">
+                  <div className="text-left">
+                    <p className={`text-sm font-black ${darkMode ? 'text-white' : 'text-[#2b3437]'}`}>{cust.fullName || "User"}</p>
+                    <p className="text-[9px] font-bold text-slate-500 uppercase">
+                        {cust.address?.slice(0, 22) || "LOCATION NOT SET"}...
+                    </p>
+                  </div>
+                  <div className="text-right">
+                     <p className={`text-sm font-black ${cust.gasLevel < 20 ? 'text-red-500' : 'text-[#0c56d0]'}`}>{cust.gasLevel}%</p>
+                     <p className="text-[8px] font-black text-slate-400 uppercase">Level</p>
                   </div>
                 </div>
-                <div className="flex-1 space-y-6 text-left">
-                  <h3 className="text-[#586064] font-bold text-xs uppercase tracking-widest mb-2">Predictive Analysis</h3>
-                  <p className="text-4xl font-headline font-black text-[#2b3437]">{daysLeft} Days <span className="text-lg font-medium text-[#abb3b7]">Estimated</span></p>
-                  <button className="py-4 px-8 bg-[#0c56d0] text-white font-bold rounded-xl shadow-lg flex items-center gap-2">Order Refill</button>
+
+                <div className="flex gap-2 mt-4">
+                   <button 
+                    disabled={cust.deviceStatus === 'dispatched'}
+                    onClick={() => handleDispatch(cust.id)}
+                    className={`w-full py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-sm ${
+                      cust.deviceStatus === 'dispatched' 
+                      ? "bg-slate-100 text-slate-400" 
+                      : "bg-[#0c56d0] text-white hover:bg-blue-700 shadow-blue-900/10"
+                    }`}
+                   >
+                     {cust.deviceStatus === 'dispatched' ? 'Unit Assigned' : 'Initialize Dispatch'}
+                   </button>
                 </div>
-              </div>
-            </motion.div>
-
-            <div className="lg:col-span-4 space-y-6">
-              <div className="bg-white p-8 rounded-[2rem] border border-[#abb3b7]/10 shadow-sm text-left">
-                <h3 className="text-[#abb3b7] text-[10px] font-black uppercase tracking-widest">Net Gas Weight</h3>
-                <p className="text-2xl font-headline font-bold text-[#2b3437]">{weight} kg</p>
-              </div>
-              <div className="bg-[#2b3437] p-8 rounded-[2rem] text-white text-left">
-                <h3 className="text-white/40 text-[10px] font-black uppercase tracking-widest">Hardware Security</h3>
-                <p className="text-xl font-bold italic">Telemetry Encrypted</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  // --- DISTRIBUTOR VIEW ---
-  return (
-    <main className="min-h-screen bg-[#f8f9fa] pt-8 pb-12 px-6 font-body text-left">
-      <div className="max-w-7xl mx-auto text-left">
-        <header className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6 text-left">
-          <div className="text-left">
-            <span className="text-[#0c56d0] font-bold text-xs uppercase tracking-[0.2em]">Logistics Terminal: Lagos Central</span>
-            <h1 className="text-3xl font-headline font-black text-[#2b3437] mt-1">Fleet Overview</h1>
-            <p className="text-sm text-[#586064]">Welcome, <span className="font-bold">{userName}</span></p>
-          </div>
-          <div className="flex gap-3">
-            <button className="px-6 py-2 bg-white border border-[#abb3b7]/30 rounded-xl font-bold text-xs text-[#586064]">Download Report</button>
-            <button className="px-6 py-2 bg-[#0c56d0] text-white rounded-xl font-bold text-xs shadow-lg shadow-[#0c56d0]/20">Dispatch Truck</button>
-          </div>
-        </header>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Top Stats Cards */}
-          <div className="lg:col-span-12 grid grid-cols-1 md:grid-cols-4 gap-4 text-left">
-            {[
-              { label: 'Network Points', val: households.length, icon: 'sensors', color: 'text-blue-500' },
-              { label: 'Urgent Refills', val: households.filter(h => h.gasLevel < 20).length, icon: 'priority_high', color: 'text-red-500' },
-              { label: 'Total Gas (MT)', val: '12.4', icon: 'database', color: 'text-gray-700' },
-              { label: 'Revenue/mo', val: '₦2.4M', icon: 'payments', color: 'text-green-600' },
-            ].map((stat, i) => (
-              <div key={i} className="bg-white p-6 rounded-2xl border border-[#abb3b7]/10 shadow-sm text-left">
-                <span className={`material-symbols-outlined mb-2 ${stat.color}`}>{stat.icon}</span>
-                <p className="text-2xl font-headline font-black text-[#2b3437]">{stat.val}</p>
-                <p className="text-xs font-bold text-[#586064] uppercase tracking-widest">{stat.label}</p>
-              </div>
+              </motion.div>
             ))}
           </div>
-
-          {/* Left: Priority Table */}
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="lg:col-span-6 bg-white rounded-[2.5rem] p-8 shadow-sm border border-[#abb3b7]/10">
-            <h3 className="text-xl font-headline font-black text-[#2b3437] mb-6">Refill Priority Queue</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b border-[#f1f4f6] text-[10px] font-black text-[#abb3b7] uppercase tracking-widest">
-                    <th className="pb-4">Customer</th>
-                    <th className="pb-4">Level</th>
-                    <th className="pb-4 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#f1f4f6]">
-                  {households.sort((a,b) => a.gasLevel - b.gasLevel).slice(0, 5).map((cust, i) => (
-                    <tr key={i} className="group hover:bg-[#f8f9fa] transition-colors">
-                      <td className="py-5">
-                        <p className="font-bold text-[#2b3437] text-sm">{cust.fullName}</p>
-                        <p className="text-[10px] text-[#abb3b7] font-bold uppercase tracking-tighter truncate max-w-[150px]">{cust.address}</p>
-                      </td>
-                      <td className="py-5">
-                        <span className={`text-xs font-black ${cust.gasLevel < 20 ? 'text-red-500' : 'text-[#2b3437]'}`}>{cust.gasLevel}%</span>
-                      </td>
-                      <td className="py-5 text-right">
-                        <button className="text-[10px] font-black uppercase text-[#0c56d0] hover:underline">Assign</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </motion.div>
-
-          {/* Right: REAL-TIME MAP replacing mock heatmap */}
-          <div className="lg:col-span-6">
-            <div className="bg-white rounded-[2.5rem] p-4 shadow-sm border border-[#abb3b7]/10 h-full min-h-[500px]">
-              <h3 className="text-xl font-headline font-black text-[#2b3437] mb-2 px-4 pt-4">Live Demand Map</h3>
-              <p className="text-xs text-[#586064] mb-4 px-4 font-medium italic">Showing all active IoT terminals in the region.</p>
-              
-              {/* THE MAP COMPONENT */}
-              <DistributorMap usersData={households} />
-            </div>
-          </div>
         </div>
+
       </div>
     </main>
   );

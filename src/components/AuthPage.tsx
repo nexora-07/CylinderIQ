@@ -40,11 +40,19 @@ const Register = () => {
         createdAt: new Date().toISOString(),
       });
 
-      if (selectedRole === "distributor" || selectedRole === "logistics") {
-        navigate("/distributor-panel"); 
-      } else {
-        navigate("/link-device", { state: { role: selectedRole } });
-      }
+      if (selectedRole === "distributor") {
+      // Send the Boss to the Command Center
+      navigate("/distributor-panel"); 
+    } 
+    else if (selectedRole === "logistics") {
+      // Send the Driver straight to the delivery list
+      navigate("/driver-mode"); 
+    } 
+    else {
+      // Send Households to link their scale
+      navigate("/link-device", { state: { role: selectedRole } });
+    }
+    
     } catch (error: any) {
       alert("Signup failed: " + error.message); 
     } finally {

@@ -9,6 +9,7 @@ import Register from './components/AuthPage';
 import SigninPage from './components/SigninPage';
 import Dashboard from './pages/Dashboard';
 import LinkDevice from './pages/LinkDevice'; 
+import DriverView from './pages/DriverView';
 
 // 1. Import the new Distributor Dashboard
 import DistributorDashboard from './pages/DistributorDashboard'; 
@@ -43,6 +44,7 @@ function App() {
             
             {/* Handshake Route */}
             <Route path="/link-device" element={<LinkDevice />} />
+            <Route path="/driver-mode" element={<DriverView />} />
             
             <Route path="*" element={<div className="pt-32 text-center">Page Not Found</div>} />
           </Routes>

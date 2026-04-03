@@ -1,8 +1,8 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useEffect } from 'react'; // Added useEffect
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { auth, db } from '../firebase'; // Import Firebase connections
-import { doc, getDoc } from 'firebase/firestore'; // Import Firestore functions
+import { auth, db } from '../firebase'; 
+import { doc, getDoc, updateDoc } from 'firebase/firestore'; // Added updateDoc
 
 const LinkDevice = () => {
   const [deviceId, setDeviceId] = useState('');
@@ -10,51 +10,66 @@ const LinkDevice = () => {
   
   const navigate = useNavigate();
   const location = useLocation();
-
-  // 1. Create a state to store the REAL role from the database
   const [userRole, setUserRole] = useState(location.state?.role || 'household');
 
-  // 2. NEW: Fetch the role from Firestore on page load to be 100% sure
+  // 1. Fetch the real role from Firestore on page load
   useEffect(() => {
     const fetchRealRole = async () => {
       const user = auth.currentUser;
       if (user) {
         const userRef = doc(db, "users", user.uid);
         const userSnap = await getDoc(userRef);
-
         if (userSnap.exists()) {
-          const roleFromDb = userSnap.data().role;
-          console.log("Database confirmed role:", roleFromDb);
-          setUserRole(roleFromDb);
+          setUserRole(userSnap.data().role);
         }
       }
     };
-
     fetchRealRole();
   }, []);
 
-  const handleSync = () => {
+  // 2. ACTUAL Sync Logic (Saving to Firebase)
+  const handleSync = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+
     setStatus('syncing');
-    
-    setTimeout(() => {
-      setStatus('success');
-      
+
+    try {
+      // Update the user's document in Firestore with the actual Hardware ID
+      const userRef = doc(db, "users", user.uid);
+      await updateDoc(userRef, {
+        deviceId: deviceId,
+        deviceStatus: "online",
+        lastSync: new Date().toISOString(),
+      });
+
+      // Artificial slight delay for the "Syncing" animation feel
       setTimeout(() => {
-        // 3. FIX: Redirect based on the role we fetched from the database
-        if (userRole === 'distributor') {
-          navigate('/distributor-panel');
-        } else {
-          navigate('/dashboard');
-        }
-      }, 2000);
-    }, 3000);
+        setStatus('success');
+        
+        // Final redirect after success animation
+        setTimeout(() => {
+          if (userRole === 'distributor' || userRole === 'logistics') {
+            navigate('/distributor-panel');
+          } else {
+            navigate('/dashboard');
+          }
+        }, 2000);
+      }, 1500);
+
+    } catch (error: any) {
+      alert("Sync failed: " + error.message);
+      setStatus('idle');
+    }
   };
 
   return (
-    <main className="min-h-screen bg-[#f8f9fa] flex items-center justify-center p-6 relative overflow-hidden text-left">
+    <main className="min-h-screen bg-[#f8f9fa] flex items-center justify-center p-6 relative overflow-hidden text-left font-body">
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#0c56d0]/20 to-transparent" />
+      
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-xl w-full">
         <div className="bg-white rounded-[2.5rem] p-8 md:p-12 shadow-[0px_40px_80px_-20px_rgba(12,86,208,0.1)] border border-[#abb3b7]/10 relative overflow-hidden">
+          
           <AnimatePresence mode="wait">
             {status !== 'success' ? (
               <motion.div key="sync-form" exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.4 }}>
@@ -73,30 +88,38 @@ const LinkDevice = () => {
                   </div>
                   <h1 className="font-headline text-3xl font-bold text-[#2b3437] mb-3">Link Smart Scale</h1>
                   <p className="text-[#586064] text-sm leading-relaxed max-w-xs mx-auto">
-                    Enter your hardware ID to initialize the secure telemetry bridge for your <strong>{userRole}</strong> account.
+                    Enter your hardware ID to initialize the secure telemetry bridge for your <strong className="text-[#0c56d0] capitalize">{userRole}</strong> account.
                   </p>
                 </div>
 
                 <div className="space-y-8">
                   <input 
                     type="text"
-                    maxLength={8}
+                    maxLength={10}
                     disabled={status === 'syncing'}
                     value={deviceId}
                     onChange={(e) => setDeviceId(e.target.value.toUpperCase())}
                     placeholder="X8-Q2-771"
-                    className="w-full text-center text-3xl font-headline font-bold tracking-[0.3em] py-6 bg-[#f1f4f6] border-2 border-transparent focus:border-[#0c56d0] rounded-2xl outline-none placeholder:opacity-20 text-[#2b3437]"
+                    className="w-full text-center text-3xl font-headline font-bold tracking-[0.3em] py-6 bg-[#f1f4f6] border-2 border-transparent focus:border-[#0c56d0] rounded-2xl outline-none placeholder:opacity-20 text-[#2b3437] transition-all"
                   />
+                  
                   <motion.button 
-                    disabled={deviceId.length < 6 || status === 'syncing'}
+                    disabled={deviceId.length < 4 || status === 'syncing'}
                     onClick={handleSync}
                     whileHover={{ scale: 1.01 }}
                     whileTap={{ scale: 0.99 }}
                     className={`w-full py-5 rounded-2xl font-headline font-bold text-lg flex items-center justify-center gap-3 transition-all ${
-                      deviceId.length >= 6 ? "bg-[#0c56d0] text-white shadow-xl shadow-[#0c56d0]/20" : "bg-[#eaeff1] text-[#abb3b7] cursor-not-allowed"
+                      deviceId.length >= 4 ? "bg-[#0c56d0] text-white shadow-xl shadow-[#0c56d0]/20" : "bg-[#eaeff1] text-[#abb3b7] cursor-not-allowed"
                     }`}
                   >
-                    {status === 'syncing' ? <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin" /> : <><span>Pair Device</span><span className="material-symbols-outlined">settings_input_component</span></>}
+                    {status === 'syncing' ? (
+                      <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <span>Pair Device</span>
+                        <span className="material-symbols-outlined">settings_input_component</span>
+                      </>
+                    )}
                   </motion.button>
                 </div>
               </motion.div>
@@ -106,8 +129,11 @@ const LinkDevice = () => {
                   <span className="material-symbols-outlined text-5xl">task_alt</span>
                 </div>
                 <h2 className="font-headline text-3xl font-bold text-[#2b3437] mb-2">Device Linked</h2>
-                <p className="text-[#586064] mb-8">Telemetry established. Opening the {userRole === 'distributor' ? 'Fleet Overview' : 'Dashboard'}...</p>
-                <div className="w-12 h-1 bg-[#eaeff1] mx-auto rounded-full overflow-hidden">
+                <p className="text-[#586064] mb-8 leading-relaxed">
+                  Telemetry established. Opening your <br />
+                  <span className="font-bold text-[#2b3437]">{userRole === 'distributor' ? 'Fleet Command' : 'Household Dashboard'}</span>...
+                </p>
+                <div className="w-24 h-1 bg-[#eaeff1] mx-auto rounded-full overflow-hidden">
                   <motion.div initial={{ x: "-100%" }} animate={{ x: "0%" }} transition={{ duration: 2 }} className="w-full h-full bg-green-500" />
                 </div>
               </motion.div>

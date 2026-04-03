@@ -6,8 +6,11 @@ const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation(); 
 
-  // Updated logic: Check if we are on ANY dashboard/panel route
-  const isDashboard = location.pathname === '/dashboard' || location.pathname === '/distributor-panel';
+  // --- UPDATED LOGIC: Add /driver-mode to the dashboard check ---
+  const isDashboard = 
+    location.pathname === '/dashboard' || 
+    location.pathname === '/distributor-panel' || 
+    location.pathname === '/driver-mode';
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -24,11 +27,10 @@ const Navbar = () => {
           onClick={scrollToTop}
           className="text-xl font-extrabold tracking-tight text-[#2b3437] font-headline cursor-pointer"
         >
-          {/* UPDATED: Blue "IQ" Branding */}
           Cylinder<span className="text-[#0c56d0]">IQ</span>
         </Link>
 
-        {/* Desktop Navigation - Only show if NOT on a dashboard panel */}
+        {/* Desktop Navigation - Hidden on Driver/Distributor panels */}
         {!isDashboard && (
           <div className="hidden md:flex gap-8">
             <button
@@ -53,10 +55,9 @@ const Navbar = () => {
       {/* Right: Actions */}
       <div className="flex items-center gap-3">
         {!isDashboard ? (
-          // PUBLIC VIEW (Landing Page, Login, Register)
+          /* PUBLIC VIEW */
           <div className="hidden md:flex items-center gap-3">
             <Link to="/login">
-              {/* UPDATED: Changed text to "Sign In" to match Hero section */}
               <button className="px-4 py-1.5 text-[#586064] font-bold hover:text-[#0c56d0] transition-colors text-sm font-body">
                 Sign In
               </button>
@@ -69,7 +70,7 @@ const Navbar = () => {
             </Link>
           </div>
         ) : (
-          // DASHBOARD VIEW (Household or Distributor)
+          /* LOGISTICS & DASHBOARD VIEW */
           <div className="flex items-center gap-5">
              <span className="material-symbols-outlined text-[#abb3b7] cursor-pointer hover:text-[#0c56d0] transition-colors">
               notifications
@@ -85,7 +86,7 @@ const Navbar = () => {
           </div>
         )}
 
-        {/* Mobile Toggle (Hidden on Dashboard for a cleaner UI) */}
+        {/* Mobile Toggle */}
         {!isDashboard && (
           <button onClick={() => setIsOpen(!isOpen)} className="md:hidden p-2 text-[#2b3437]">
             <div className="w-5 h-4 flex flex-col justify-between">
@@ -113,7 +114,6 @@ const Navbar = () => {
             
             <hr className="border-[#abb3b7]/15" />
             <div className="flex flex-col gap-3">
-              {/* UPDATED: Consistency for Mobile Menu */}
               <Link to="/login" onClick={() => setIsOpen(false)}>
                 <button className="w-full py-2.5 text-[#586064] font-bold border border-[#abb3b7]/30 rounded-lg text-sm">
                   Sign In
