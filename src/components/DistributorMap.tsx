@@ -50,8 +50,8 @@ const DistributorMap = ({ usersData }: { usersData: any[] }) => {
         className="h-full w-full"
       >
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; CARTO'
+        url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+        attribution='&copy; CARTO'
         />
 
         <FitMarkers usersData={usersData} />
@@ -90,7 +90,7 @@ const DistributorMap = ({ usersData }: { usersData: any[] }) => {
                   <p className="font-bold text-xs text-gray-800">{user.fullName}</p>
                   <p className="text-xl font-black" style={{ color }}>{level}%</p>
                   {isCritical && <p className="text-[10px] font-black text-red-600 uppercase">Emergency</p>}
-                </div>
+                </div> 
               </Popup>
             </CircleMarker>
           );
