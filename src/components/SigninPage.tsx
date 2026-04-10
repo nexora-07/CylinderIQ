@@ -11,12 +11,11 @@ const Login = () => {
   const [password, setPassword] = useState(""); 
   const [loading, setLoading] = useState(false);
   
-  // NEW: State to select which dashboard to access
+  // This state tracks which "portal" the user is trying to enter
   const [loginRole, setLoginRole] = useState("household");
 
   const navigate = useNavigate();
 
-  // Role options for the selector
   const roles = [
     { id: "household", label: "Household", icon: "home" },
     { id: "distributor", label: "Distributor", icon: "monitoring" },
@@ -28,28 +27,37 @@ const Login = () => {
     setLoading(true);
 
     try {
-      // 1. Sign in with Firebase Auth
+      // 1. Authenticate with Firebase
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // 2. Fetch the user's REAL profile from Firestore
+      // 2. FETCH REAL ROLE FROM FIRESTORE
       const userDoc = await getDoc(doc(db, "users", user.uid));
-      
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        const actualProfileRole = userData.role;
 
-        console.log(`Signed in as ${actualProfileRole}. Requested view: ${loginRole}`);
+if (userDoc.exists()) {
+  const userData = userDoc.data();
+  // Standardize the role to lowercase to avoid "LOGISTICS" vs "logistics" errors
+  const actualRole = userData.role.toLowerCase(); 
+  const selectedPortal = loginRole.toLowerCase();
 
-        // 3. Smart Redirect: We prioritize the SELECTED role for navigation
-        if (loginRole === 'distributor' || loginRole === 'logistics') {
-          navigate('/distributor-panel');
-        } else {
-          navigate('/dashboard');
-        }
-      } else {
-        navigate('/dashboard');
-      }
+  // GROUP 1: Households
+  if (selectedPortal === 'household' && actualRole === 'household') {
+    navigate('/dashboard');
+  } 
+  // GROUP 2: The "Business" Side (Distributor or Logistics)
+  else if (
+    (selectedPortal === 'distributor' || selectedPortal === 'logistics') && 
+    (actualRole === 'distributor' || actualRole === 'logistics')
+  ) {
+    navigate('/distributor-panel');
+  } 
+  // CATCH ALL: Wrong Portal
+  else {
+    await auth.signOut();
+    alert(`Portal Mismatch: You are trying to enter the ${selectedPortal.toUpperCase()} portal, but your account is registered as ${actualRole.toUpperCase()}.`);
+    setLoading(false);
+  }
+}
 
     } catch (error: any) {
       console.error("Login Error:", error.message);
@@ -64,34 +72,33 @@ const Login = () => {
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
         className="max-w-md w-full"
       >
-        <div className="text-center mb-10">
+        <div className="text-center md:text-left">
           <Link to="/" className="inline-block">
             <span className="font-headline text-3xl font-extrabold tracking-tight text-[#2b3437]">
               Cylinder<span className="text-[#0c56d0]">IQ</span>
             </span>
           </Link>
-          <p className="text-[#586064] mt-3 font-medium">Access your predictive dashboard</p>
+          <p className="text-[#586064] mt-3 font-medium text-left">Access your predictive dashboard</p>
         </div>
 
-        <div className="bg-white rounded-[2rem] p-8 md:p-10 shadow-[0px_24px_48px_rgba(43,52,55,0.06)] border border-[#abb3b7]/10 relative overflow-hidden">
+        <div className="bg-white rounded-[2rem] p-8 md:p-10 shadow-sm border border-[#abb3b7]/10 relative overflow-hidden">
+          {/* Progress Bar Decor */}
           <div className="absolute top-0 left-0 w-full h-1.5 bg-[#f1f4f6]">
             <motion.div 
               initial={{ x: "-100%" }}
               animate={{ x: "0%" }}
-              transition={{ duration: 1, ease: "easeInOut" }}
               className="h-full w-1/3 bg-[#0c56d0]"
             />
           </div>
 
           <form className="space-y-6" onSubmit={handleLogin}>
             
-            {/* NEW: Role Selector UI */}
-            <div className="space-y-3 mb-4">
+            {/* PORTAL SELECTOR */}
+            <div className="space-y-3 mb-4 text-left">
               <label className="text-[10px] font-black uppercase tracking-widest text-[#586064] ml-1">
-                Sign in as:
+                Select Access Portal:
               </label>
               <div className="grid grid-cols-3 gap-3">
                 {roles.map((role) => (
@@ -117,74 +124,44 @@ const Login = () => {
                 Registered Email
               </label>
               <div className="relative">
-                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#abb3b7] text-xl">
-                  alternate_email
-                </span>
+                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#abb3b7] text-xl">alternate_email</span>
                 <input 
-                  type="email" 
-                  required 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@company.com" 
-                  className="w-full pl-12 pr-5 py-4 bg-[#f1f4f6] border border-[#abb3b7]/15 rounded-xl outline-none font-body"
+                  className="w-full pl-12 pr-5 py-4 bg-[#f1f4f6] border border-[#abb3b7]/15 rounded-xl outline-none"
                 />
               </div>
             </div>
 
             <div className="space-y-2 text-left">
               <div className="flex justify-between items-center ml-1">
-                <label className="text-sm font-semibold text-[#586064] uppercase tracking-wider text-[10px]">
-                  Secure Password
-                </label>
-                <button type="button" className="text-[10px] font-bold text-[#0c56d0] hover:underline uppercase tracking-wider">
-                  Forgot?
-                </button>
+                <label className="text-sm font-semibold text-[#586064] uppercase tracking-wider text-[10px]">Password</label>
+                <button type="button" className="text-[10px] font-bold text-[#0c56d0] uppercase tracking-wider">Forgot?</button>
               </div>
               <div className="relative">
-                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#abb3b7] text-xl">
-                  lock
-                </span>
+                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#abb3b7] text-xl">lock</span>
                 <input 
-                  type={showPassword ? "text" : "password"} 
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  type={showPassword ? "text" : "password"} required value={password} onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••••••" 
-                  className="w-full pl-12 pr-12 py-4 bg-[#f1f4f6] border border-[#abb3b7]/15 rounded-xl outline-none font-body" 
+                  className="w-full pl-12 pr-12 py-4 bg-[#f1f4f6] border border-[#abb3b7]/15 rounded-xl outline-none" 
                 />
                 <button 
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#abb3b7] hover:text-[#0c56d0] transition-colors"
+                  type="button" onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#abb3b7] hover:text-[#0c56d0]"
                 >
-                  <span className="material-symbols-outlined text-xl">
-                    {showPassword ? 'visibility_off' : 'visibility'}
-                  </span>
+                  <span className="material-symbols-outlined text-xl">{showPassword ? 'visibility_off' : 'visibility'}</span>
                 </button>
               </div>
-            </div>
-
-            <div className="flex items-center gap-3 px-1 text-left">
-              <input 
-                type="checkbox" 
-                id="remember"
-                className="w-4 h-4 rounded border-gray-300 text-[#0c56d0] focus:ring-[#0c56d0]" 
-              />
-              <label htmlFor="remember" className="text-xs font-medium text-[#586064] font-body">
-                Remember Me
-              </label>
             </div>
 
             <motion.button 
-              disabled={loading}
-              type="submit" 
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
+              disabled={loading} type="submit" 
+              whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
               className="w-full py-4 bg-[#0c56d0] text-white font-headline font-bold text-lg rounded-xl shadow-lg shadow-[#0c56d0]/20 flex items-center justify-center gap-2"
             >
-              {loading ? "Authenticating..." : (
+              {loading ? "Verifying..." : (
                 <>
-                  <span>Sign In to Terminal</span>
+                  <span className="text-sm uppercase tracking-[0.2em]">Enter Terminal</span>
                   <span className="material-symbols-outlined">login</span>
                 </>
               )}
@@ -194,9 +171,7 @@ const Login = () => {
 
         <p className="text-center mt-8 text-[#586064] text-sm font-body">
           Don't have a terminal account? {' '}
-          <Link to="/register" className="text-[#0c56d0] font-bold hover:underline">
-            Register your device
-          </Link>
+          <Link to="/register" className="text-[#0c56d0] font-bold hover:underline">Register device</Link>
         </p>
       </motion.div>
     </main>
