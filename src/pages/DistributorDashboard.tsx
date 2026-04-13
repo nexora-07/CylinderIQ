@@ -1,19 +1,31 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom'; // 1. Added useNavigate
 import { auth, db } from '../firebase'; 
+import { signOut } from 'firebase/auth'; // 2. Added signOut import
 import { doc, getDoc, collection, query, where, onSnapshot, updateDoc } from 'firebase/firestore'; 
 import DistributorMap from '../components/DistributorMap'; 
 
 const Dashboard = () => {
+  const navigate = useNavigate(); // 3. Initialize navigate
   const [loading, setLoading] = useState(true);
   const [households, setHouseholds] = useState<any[]>([]);
   const [distributorName, setDistributorName] = useState('Partner');
+
+  // --- NEW: CENTRALIZED LOGOUT ---
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate('/login'); // Force redirect to login
+    } catch (error) {
+      console.error("Logout Error:", error);
+    }
+  };
 
   // --- REFILL BOOKING & AI ENGINE ---
   const aiInsight = useMemo(() => {
     if (households.length === 0) return { title: "Initializing...", text: "Syncing..." };
 
-    // 1. CHECK FOR MANUAL REQUESTS FIRST (HIGHEST PRIORITY)
     const activeRequests = households.filter(h => h.deviceStatus === 'requesting');
     if (activeRequests.length > 0) {
       return {
@@ -73,25 +85,30 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-[#f1f5f9] text-slate-950 font-sans selection:bg-blue-100 overflow-x-hidden">
+      {/* Header stays exactly as it was, but we reduced the pt gap on the main tag later */}
       <header className="fixed top-0 left-0 w-full h-16 bg-white border-b border-slate-100 z-[100] px-10 flex items-center justify-between shadow-sm">
         <h1 className="text-xl font-bold text-slate-800">Cylinder<span className="text-[#0c56d0]">IQ</span></h1>
         <div className="flex items-center gap-6">
           <span className="material-symbols-outlined text-slate-400 cursor-pointer">notifications</span>
           <div className="flex items-center gap-4 pl-4 border-l border-slate-200">
             <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-[#0c56d0] font-bold uppercase">{distributorName.charAt(0)}</div>
-            <button onClick={() => auth.signOut()} className="text-xs font-bold text-red-700 uppercase tracking-wide">Logout</button>
+            {/* UPDATED: Calling handleLogout instead of a raw inline arrow function */}
+            <button onClick={handleLogout} className="text-xs font-bold text-red-700 uppercase tracking-wide">Logout</button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-[1750px] mx-auto pt-20 px-8 pb-10 text-left">
+      {/* Reduced pt-20 to pt-16 to pull content up and reduce the gap */}
+      <main className="max-w-[1750px] mx-auto pt-16 px-8 pb-10 text-left">
         <div className="mb-4">
           <h2 className="text-2xl font-bold text-slate-950 tracking-tight text-left">Welcome back, {distributorName}</h2>
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-0.5">Fleet intelligence overview</p>
         </div>
         
+        {/* ... Rest of your UI ... */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          {[ { label: 'Network Reach', val: '2,540', icon: 'hub', color: 'text-blue-600' }, { label: 'Critical Alerts', val: lowGasCount, icon: 'error', color: 'text-red-600', alert: lowGasCount > 0 }, { label: 'Active Fleet', val: '12', icon: 'navigation', color: 'text-sky-600' }, { label: 'Refills Handled', val: '45', icon: 'task_alt', color: 'text-emerald-600' } ].map((stat, i) => (
+           {/* Stat cards logic stays same */}
+           {[ { label: 'Network Reach', val: '2,540', icon: 'hub', color: 'text-blue-600' }, { label: 'Critical Alerts', val: lowGasCount, icon: 'error', color: 'text-red-600', alert: lowGasCount > 0 }, { label: 'Active Fleet', val: '12', icon: 'navigation', color: 'text-sky-600' }, { label: 'Refills Handled', val: '45', icon: 'task_alt', color: 'text-emerald-600' } ].map((stat, i) => (
             <motion.div key={i} whileHover={{ y: -5 }} className={`bg-white p-5 rounded-3xl border transition-all shadow-sm ${stat.alert ? 'border-red-100 bg-red-50/40' : 'border-white'}`}>
               <div className="flex justify-between items-center mb-3">
                 <span className={`material-symbols-outlined ${stat.color} text-2xl`}>{stat.icon}</span>

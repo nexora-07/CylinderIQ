@@ -36,28 +36,29 @@ const Login = () => {
 
 if (userDoc.exists()) {
   const userData = userDoc.data();
-  // Standardize the role to lowercase to avoid "LOGISTICS" vs "logistics" errors
   const actualRole = userData.role.toLowerCase(); 
   const selectedPortal = loginRole.toLowerCase();
 
-  // GROUP 1: Households
-  if (selectedPortal === 'household' && actualRole === 'household') {
-    navigate('/dashboard');
-  } 
-  // GROUP 2: The "Business" Side (Distributor or Logistics)
-  else if (
-    (selectedPortal === 'distributor' || selectedPortal === 'logistics') && 
-    (actualRole === 'distributor' || actualRole === 'logistics')
-  ) {
-    navigate('/distributor-panel');
-  } 
-  // CATCH ALL: Wrong Portal
-  else {
+  // 1. STRICTOR CHECK: The portal selected MUST match the role in the database
+  if (selectedPortal === actualRole) {
+    
+    // If they match, proceed to the correct dashboard
+    if (actualRole === 'household') {
+      navigate('/dashboard');
+    } else if (actualRole === 'distributor') {
+      navigate('/distributor-panel');
+    } else if (actualRole === 'logistics') {
+      navigate('/driver-mode');
+    }
+
+  } else {
+    // 2. BLOCKER: If they don't match exactly, show the error message
     await auth.signOut();
-    alert(`Portal Mismatch: You are trying to enter the ${selectedPortal.toUpperCase()} portal, but your account is registered as ${actualRole.toUpperCase()}.`);
+    alert(`Access Denied: You are trying to enter the ${selectedPortal.toUpperCase()} portal, but this account is registered specifically for ${actualRole.toUpperCase()}.`);
     setLoading(false);
   }
 }
+
 
     } catch (error: any) {
       console.error("Login Error:", error.message);

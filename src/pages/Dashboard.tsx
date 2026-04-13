@@ -1,22 +1,23 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react'; 
 import { Link } from 'react-router-dom';
-import { auth, db } from '../firebase'; 
+import { auth, db, rtdb } from '../firebase'; 
 import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore'; 
+import { ref, onValue } from 'firebase/database';
 
 const Dashboard = () => {
-  const [gasLevel, setGasLevel] = useState(18);
+  const [gasLevel, setGasLevel] = useState(0);
   const [userName, setUserName] = useState('User');
   const [loading, setLoading] = useState(true);
   const [deviceStatus, setDeviceStatus] = useState('online');
   const [lastUpdated, setLastUpdated] = useState<any>(null);
 
-  // --- 1. REFILL BOOKING LOGIC ---
+  // --- REFILL BOOKING LOGIC ---
   const handleRequestRefill = async () => {
-    const user = auth.currentUser;
-    if (!user) return;
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
     try {
-      const userRef = doc(db, "users", user.uid);
+      const userRef = doc(db, "users", currentUser.uid);
       await updateDoc(userRef, {
         deviceStatus: "requesting",
         requestDate: serverTimestamp(),
@@ -24,9 +25,12 @@ const Dashboard = () => {
     } catch (error) { console.error("Request Error:", error); }
   };
 
+  // --- HARDWARE SYNC LOGIC ---
   const getDeviceStatusInfo = () => {
     if (!lastUpdated) return { label: 'Syncing', color: 'bg-slate-300' };
-    const diff = (Date.now() - (lastUpdated.toDate ? lastUpdated.toDate().getTime() : new Date(lastUpdated).getTime())) / 60000;
+    const lastSyncTime = lastUpdated instanceof Date ? lastUpdated.getTime() : new Date(lastUpdated).getTime();
+    const diff = (Date.now() - lastSyncTime) / 60000;
+
     if (diff < 10) return { label: 'Active', color: 'bg-emerald-500' };
     if (diff < 1440) return { label: 'Sleep Mode', color: 'bg-amber-500' };
     return { label: 'Offline', color: 'bg-red-500' };
@@ -45,25 +49,49 @@ const Dashboard = () => {
   const maxUsage = Math.max(...weeklyUsage.map(u => u.usage));
 
   useEffect(() => {
-    const user = auth.currentUser;
-    if (!user) return;
-    const unsubscribe = onSnapshot(doc(db, "users", user.uid), (doc) => {
+    // FIX: We check for the user here, but the effect doesn't strictly depend 
+    // on a local 'user' variable that changes frequently.
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+        setLoading(false);
+        return;
+    }
+
+    // 1. LISTEN TO FIRESTORE (Profile Data)
+    const unsubscribeFirestore = onSnapshot(doc(db, "users", currentUser.uid), (doc) => {
       if (doc.exists()) {
         const data = doc.data();
         setUserName(data.fullName || 'User');
-        setGasLevel(data.gasLevel || 0);
-        setLastUpdated(data.lastUpdated || null);
         setDeviceStatus(data.deviceStatus || 'online');
+      }
+    });
+
+    // 2. LISTEN TO REALTIME DATABASE (Live Scale Data)
+    const deviceRef = ref(rtdb, 'devices/CIQ-ESP-001');
+    const unsubscribeRTDB = onValue(deviceRef, (snapshot) => {
+      const data = snapshot.val();
+      console.log("Realtime Data Received:", data)
+      if (data) {
+        setGasLevel(data.gas_percentage || 0);
+        if (data.last_updated) {
+          setLastUpdated(new Date(data.last_updated * 1000));
+        }
       }
       setLoading(false);
     });
-    return () => unsubscribe();
+
+    return () => {
+      unsubscribeFirestore();
+      unsubscribeRTDB();
+    };
+    // Dependency array is empty because Firebase listeners handle 
+    // their own internal subscription state.
   }, []);
 
   if (loading) return <div className="min-h-screen bg-[#f8f9fa] flex items-center justify-center font-black text-[#0c56d0] animate-pulse uppercase tracking-widest text-xs">Syncing Terminal...</div>;
 
   return (
-    <main className="min-h-screen bg-[#f8f9fa] pt-24 pb-12 px-6 font-body text-left text-[#2b3437]">
+    <main className="min-h-screen bg-[#f8f9fa] pt-16 pb-12 px-6 font-body text-left text-[#2b3437]">
       <div className="max-w-7xl mx-auto">
         <header className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div className="text-left">
@@ -76,7 +104,12 @@ const Dashboard = () => {
             </div>
             <h1 className="text-4xl font-headline font-black text-[#2b3437]">Hello, <span className="text-[#0c56d0]">{userName}</span></h1>
           </div>
-          <Link to="/link-device" className="flex items-center gap-2 bg-white border-2 border-dashed border-[#abb3b7]/30 px-5 py-2.5 rounded-2xl text-[#586064] text-xs font-bold uppercase hover:border-[#0c56d0] transition-all">Sync Hardware</Link>
+
+          <div className="flex items-center gap-4">
+            <Link to="/link-device" className="flex items-center gap-2 bg-white border-2 border-dashed border-[#abb3b7]/30 px-5 py-2.5 rounded-2xl text-[#586064] text-xs font-bold uppercase hover:border-[#0c56d0] transition-all">
+              Sync Hardware
+            </Link>
+          </div>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -92,7 +125,14 @@ const Dashboard = () => {
               <div className="relative w-72 h-72">
                 <svg className="w-full h-full -rotate-90">
                   <circle cx="144" cy="144" r="120" stroke="#f8fafc" strokeWidth="24" fill="transparent" />
-                  <motion.circle cx="144" cy="144" r="120" stroke={gasLevel < 20 ? "#9f403d" : "#0c56d0"} strokeWidth="24" fill="transparent" strokeDasharray="754" animate={{ strokeDashoffset: 754 - (754 * gasLevel) / 100 }} transition={{ duration: 2 }} strokeLinecap="round" />
+                  <motion.circle 
+                    cx="144" cy="144" r="120" 
+                    stroke={gasLevel < 20 ? "#9f403d" : "#0c56d0"} 
+                    strokeWidth="24" fill="transparent" strokeDasharray="754" 
+                    animate={{ strokeDashoffset: 754 - (754 * gasLevel) / 100 }} 
+                    transition={{ duration: 1.5, ease: "easeOut" }} 
+                    strokeLinecap="round" 
+                  />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <span className={`text-7xl font-headline font-black tracking-tighter ${gasLevel < 20 ? 'text-[#9f403d]' : 'text-[#2b3437]'}`}>{gasLevel}%</span>
@@ -108,7 +148,7 @@ const Dashboard = () => {
                     <p className="text-sm font-bold text-[#abb3b7] uppercase">Remaining</p>
                   </div>
                   <p className="text-[#586064] mt-3 text-sm leading-relaxed font-medium">
-                    {deviceStatus === 'dispatched' ? "🚚 Dispatch unit is on the way!" : deviceStatus === 'requesting' ? "⌛ Refill request is pending approval..." : "Predictions are updated every time the hardware wakes to sync."}
+                    {deviceStatus === 'dispatched' ? "🚚 Dispatch unit is on the way!" : deviceStatus === 'requesting' ? "⌛ Refill request is pending approval..." : "Predictions are live. Data pings every 4 hours via IoT sync."}
                   </p>
                 </div>
                 <button 
@@ -122,7 +162,6 @@ const Dashboard = () => {
             </div>
           </motion.div>
 
-          {/* SIDEBAR CARDS */}
           <div className="lg:col-span-4 space-y-6">
             <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm text-left">
               <h3 className="text-[#abb3b7] text-[10px] font-black uppercase tracking-widest">Net Content Weight</h3>
@@ -138,7 +177,7 @@ const Dashboard = () => {
                 <span className="material-symbols-outlined text-[#0c56d0] text-lg">history</span>
               </div>
               <div className="space-y-5">
-                {[{ title: 'Refill Success', sub: 'Full 12.5kg Cylinder', date: 'MAR 28', color: 'text-[#0c56d0]' }, { title: 'Sleep mode entered', sub: 'Power optimization active', date: 'MAR 27', color: 'text-amber-500' }, { title: 'Low Gas Alert', sub: 'Triggered at 15%', date: 'MAR 26', color: 'text-red-500' }].map((item, i) => (
+                {[{ title: 'Refill Success', sub: 'Full 12.5kg Cylinder', date: 'APR 10', color: 'text-[#0c56d0]' }, { title: 'Hardware Sync', sub: 'IoT Scale Connected', date: 'APR 12', color: 'text-emerald-500' }, { title: 'Low Gas Alert', sub: 'Critical threshold hit', date: 'APR 13', color: 'text-red-500' }].map((item, i) => (
                   <div key={i} className="flex items-center justify-between border-b border-slate-50 pb-3">
                     <div><p className="text-xs font-bold text-[#2b3437]">{item.title}</p><p className="text-[9px] text-[#abb3b7] uppercase tracking-tighter">{item.sub}</p></div>
                     <p className={`text-[10px] font-black ${item.color}`}>{item.date}</p>
@@ -148,7 +187,6 @@ const Dashboard = () => {
             </motion.div>
           </div>
           
-          {/* CHARTS */}
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="lg:col-span-12 bg-white rounded-[3rem] p-10 shadow-sm border border-slate-100">
             <div className="mb-10 text-left">
               <h3 className="text-[#2b3437] font-headline font-bold text-2xl">Usage Trends</h3>
